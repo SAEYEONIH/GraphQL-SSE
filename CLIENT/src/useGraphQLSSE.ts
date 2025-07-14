@@ -1,40 +1,30 @@
-import { useEffect } from 'react';
+import { ApolloLink, type Operation, type FetchResult, Observable } from '@apollo/client/core';
+import { print, type ExecutionResult } from 'graphql';
 import { createClient } from 'graphql-sse';
 
-interface GraphQLSSEOptions<T> {
-  url: string;
-  query: string;
-  onSuccess: (data: T) => void;
-  onError: (error: any) => void;
-}
+export class SSELink extends ApolloLink {
+  private client;
 
-export function useGraphQLSSE<T>({ url, query, onSuccess, onError }: GraphQLSSEOptions<T>) {
-  useEffect(() => {
-    console.log('Starting subscription');
-    const client = createClient({
-      url,
+  constructor(options: { url: string }) {
+    super();
+    this.client = createClient(options);
+  }
+
+  request(operation: Operation): Observable<FetchResult> {
+    return new Observable((sink) => {
+      return this.client.subscribe<FetchResult>(
+        {
+          ...operation,
+          query: print(operation.query),
+        },
+        {
+          next: (result: ExecutionResult<FetchResult>) => {
+            sink.next(result as FetchResult);
+          },
+          complete: sink.complete.bind(sink),
+          error: sink.error.bind(sink),
+        },
+      );
     });
-
-    const dispose = client.subscribe(
-      {
-        query,
-      },
-      {
-        next: (data) => {
-          console.log('Received data:', data);
-          onSuccess(data as T);
-        },
-        error: (error) => {
-          console.error('Subscription error:', error);
-          onError(error);
-        },
-        complete: () => console.log('Subscription complete'),
-      },
-    );
-
-    return () => {
-      console.log('Disposing subscription');
-      dispose();
-    };
-  }, [url, query, onSuccess, onError]);
+  }
 }

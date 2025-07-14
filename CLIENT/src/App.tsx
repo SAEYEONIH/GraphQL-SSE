@@ -1,29 +1,59 @@
-import { useState, useCallback } from 'react';
-import { useGraphQLSSE } from './useGraphQLSSE';
+import {
+  useQuery,
+  useMutation,
+  useSubscription,
+  gql,
+} from '@apollo/client';
+
+// GraphQL Queries, Mutations, Subscriptions
+const GET_GREETING = gql`
+  query GetGreeting {
+    hello
+  }
+`;
+
+const ADD_NUMBER = gql`
+  mutation AddNumber($num: Int!) {
+    add(num: $num)
+  }
+`;
+
+const NUMBER_ADDED_SUBSCRIPTION = gql`
+  subscription OnNumberAdded {
+    numberAdded
+  }
+`;
 
 function App() {
-  const [count, setCount] = useState(0);
-  const [error, setError] = useState<any>(null);
+  // Query Example
+  const { error: queryError, data: queryData } = useQuery(GET_GREETING);
 
-  const onSuccess = useCallback((result: { data: { counter: number } }) => {
-  setCount(result.data.counter);
-}, []);
+  // Mutation Example
+  const [addNumber, { error: mutationError }] = useMutation(ADD_NUMBER);
 
-  const onError = useCallback((error: any) => {
-    setError(error);
-  }, []);
+  // Subscription Example
+  const { data: subscriptionData, error: subscriptionError } = useSubscription(
+    NUMBER_ADDED_SUBSCRIPTION,
+  );
 
-  useGraphQLSSE({
-    url: 'http://localhost:4000/graphql',
-    query: 'subscription { counter }',
-    onSuccess,
-    onError,
-  });
+  if (queryError) return <p>Query Error: {queryError.message}</p>;
+  if (mutationError) return <p>Mutation Error: {mutationError.message}</p>;
+  if (subscriptionError) return <p>Subscription Error: {subscriptionError.message}</p>;
 
   return (
-    <div className="App">
-      {error && <p>Error: {JSON.stringify(error)}</p>}
-      <p>Counter: {count}</p>
+    <div>
+      <h1>Apollo Client with splitLink Example</h1>
+
+      <h2>Query:</h2>
+      <p>Greeting: {queryData?.hello}</p>
+
+      <h2>Mutation:</h2>
+      <button onClick={() => addNumber({ variables: { num: Math.floor(Math.random() * 100) } })}>
+        Add Random Number
+      </button>
+
+      <h2>Subscription:</h2>
+      <p>New Number Added: {subscriptionData?.numberAdded}</p>
     </div>
   );
 }
